@@ -90,8 +90,21 @@ static int lept_parse_number(lept_context* c, lept_value* v) {
     return LEPT_PARSE_OK;
 }
 
+# define IS_HEX_ALPHA(ch) ((ch >= 'a' && ch <= 'f') || (ch >= 'A' && ch <= 'F'))
 static const char* lept_parse_hex4(const char* p, unsigned* u) {
     /* \TODO */
+	size_t i;
+	*u = 0;
+	for (i = 0; i < 4; i++) {
+		if (ISDIGIT(*p)) {
+			*u = *u << 4 + *p++ - '0';
+		}
+		else if (IS_HEX_ALPHA(*p)) {
+			*u = *u << 4 + *p++ % 'a' % 'A' + 10;
+		}
+		else
+			return NULL;
+	}
     return p;
 }
 
@@ -129,6 +142,7 @@ static int lept_parse_string(lept_context* c, lept_value* v) {
                         if (!(p = lept_parse_hex4(p, &u)))
                             STRING_ERROR(LEPT_PARSE_INVALID_UNICODE_HEX);
                         /* \TODO surrogate handling */
+						if (u > 0x10FFFF) return LEPT_PARSE_INVALID_UNICODE_SURROGATE;
                         lept_encode_utf8(c, u);
                         break;
                     default:
