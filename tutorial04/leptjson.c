@@ -94,22 +94,58 @@ static int lept_parse_number(lept_context* c, lept_value* v) {
 static const char* lept_parse_hex4(const char* p, unsigned* u) {
     /* \TODO */
 	size_t i;
+	unsigned l = 0;
 	*u = 0;
 	for (i = 0; i < 4; i++) {
 		if (ISDIGIT(*p)) {
-			*u = *u << 4 + *p++ - '0';
+			*u = (*u << 4) + *p++ - '0';
 		}
 		else if (IS_HEX_ALPHA(*p)) {
-			*u = *u << 4 + *p++ % 'a' % 'A' + 10;
+			*u = (*u << 4) + *p++ % 'a' % 'A' + 10;
 		}
 		else
 			return NULL;
+	}
+	/* \TODO check if legal and scan again */
+	if (*u >= 0xD800 && *u <= 0xDBFF && *p == '\\' && *(p+1) == 'u') {
+		p += 2;
+		for (i = 0; i < 4; i++) {
+			if (ISDIGIT(*p)) {
+				l = (l << 4) + *p++ - '0';
+			}
+			else if (IS_HEX_ALPHA(*p)) {
+				l = (l << 4) + *p++ % 'a' % 'A' + 10;
+			}
+			else
+				return NULL;
+		}
+		if (l >= 0xDC00 && l <= 0xDFFF)
+			*u = (*u - 0xD800) * 0x400 + l - 0xDC00 + 0x10000;
 	}
     return p;
 }
 
 static void lept_encode_utf8(lept_context* c, unsigned u) {
     /* \TODO */
+	assert(u < 0x10FFFF);
+	if (u <= 0x007F) {
+		PUTC(c, u | 0x0);
+	}
+	if (u >= 0x0080 && u <= 0x07FF) {
+		PUTC(c, (u >> 6) | 0xC0);
+		PUTC(c, u & 0x3F | 0x80);
+	}
+	if (u >= 0x0800 && u <= 0xFFFF) {
+		PUTC(c, (u >> 12) | 0xE0);
+		PUTC(c, (u >> 6) & 0x3F | 0x80);
+		PUTC(c, u & 0x3F | 0x80);
+	}
+	if (u >= 0x10000 && u <= 0x10FFFF) {
+		PUTC(c, (u >> 18) | 0xF0);
+		PUTC(c, (u >> 12) & 0x3F | 0x80);
+		PUTC(c, (u >> 6) & 0x3F | 0x80);
+		PUTC(c, u & 0x3F | 0x80);
+	}
 }
 
 #define STRING_ERROR(ret) do { c->top = head; return ret; } while(0)
@@ -142,7 +178,8 @@ static int lept_parse_string(lept_context* c, lept_value* v) {
                         if (!(p = lept_parse_hex4(p, &u)))
                             STRING_ERROR(LEPT_PARSE_INVALID_UNICODE_HEX);
                         /* \TODO surrogate handling */
-						if (u > 0x10FFFF) return LEPT_PARSE_INVALID_UNICODE_SURROGATE;
+						if (u >= 0xD800 && u <= 0xDBFF)
+							STRING_ERROR(LEPT_PARSE_INVALID_UNICODE_SURROGATE);
                         lept_encode_utf8(c, u);
                         break;
                     default:
