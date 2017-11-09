@@ -129,12 +129,79 @@ static void test_parse_string() {
 
 static void test_parse_array() {
     lept_value v;
+	lept_value *e;
 
+	/* json: [ ] */
     lept_init(&v);
     EXPECT_EQ_INT(LEPT_PARSE_OK, lept_parse(&v, "[ ]"));
     EXPECT_EQ_INT(LEPT_ARRAY, lept_get_type(&v));
     EXPECT_EQ_SIZE_T(0, lept_get_array_size(&v));
     lept_free(&v);
+
+	/* json: [ null , false , true , 123 , "abc" ] */
+	lept_init(&v);
+	EXPECT_EQ_INT(LEPT_PARSE_OK, lept_parse(&v, "[ null , false , true , 123 , \"abc\" ]"));
+	EXPECT_EQ_INT(LEPT_ARRAY, lept_get_type(&v));
+	EXPECT_EQ_SIZE_T(5, lept_get_array_size(&v));
+	/* null */
+	e = lept_get_array_element(&v, 0);
+	EXPECT_EQ_INT(LEPT_NULL, lept_get_type(e));
+	/* false */
+	e = lept_get_array_element(&v, 1);
+	EXPECT_EQ_INT(LEPT_FALSE, lept_get_type(e));
+	/* true */
+	e = lept_get_array_element(&v, 2);
+	EXPECT_EQ_INT(LEPT_TRUE, lept_get_type(e));
+	/* 123 */
+	e = lept_get_array_element(&v, 3);
+	EXPECT_EQ_INT(LEPT_NUMBER, lept_get_type(e));
+	EXPECT_EQ_DOUBLE(123.0, lept_get_number(e));
+	/* abc */
+	EXPECT_EQ_INT(LEPT_STRING, lept_get_type(e));
+	EXPECT_EQ_STRING("123", lept_get_string(e), 3);
+
+	lept_free(&v);
+
+	/* json: [ [ ] , [ 0 ] , [ 0 , 1 ] , [ 0 , 1 , 2 ] ] */
+	lept_init(&v);
+	EXPECT_EQ_INT(LEPT_PARSE_OK, lept_parse(&v, "[ [ ] , [ 0 ] , [ 0 , 1 ] , [ 0 , 1 , 2 ] ]"));
+	EXPECT_EQ_INT(LEPT_ARRAY, lept_get_type(&v));
+	EXPECT_EQ_SIZE_T(4, lept_get_array_size(&v));
+	/* array 0 */
+	e = lept_get_array_element(&v, 0);
+	EXPECT_EQ_INT(LEPT_ARRAY, lept_get_type(&e));
+	EXPECT_EQ_SIZE_T(0, lept_get_array_size(&e));
+	/* array 1 */
+	e = lept_get_array_element(&v, 1);
+	EXPECT_EQ_INT(LEPT_ARRAY, lept_get_type(&e));
+	EXPECT_EQ_SIZE_T(1, lept_get_array_size(&e));
+	/* array 1 - number 0 */
+	EXPECT_EQ_INT(LEPT_NUMBER, lept_get_type(lept_get_array_element(&e, 0)));
+	EXPECT_EQ_DOUBLE(0.0, lept_get_number(e));
+	/* array 2 */
+	e = lept_get_array_element(&v, 2);
+	EXPECT_EQ_INT(LEPT_ARRAY, lept_get_type(&e));
+	EXPECT_EQ_SIZE_T(2, lept_get_array_size(&e));
+	/* array 2 - number 0 */
+	EXPECT_EQ_INT(LEPT_NUMBER, lept_get_type(lept_get_array_element(&e, 0)));
+	EXPECT_EQ_DOUBLE(0.0, lept_get_number(e));
+	/* array 1 - number 1 */
+	EXPECT_EQ_INT(LEPT_NUMBER, lept_get_type(lept_get_array_element(&e, 1)));
+	EXPECT_EQ_DOUBLE(1.0, lept_get_number(e));
+	/* array 3 */
+	e = lept_get_array_element(&v, 3);
+	EXPECT_EQ_INT(LEPT_ARRAY, lept_get_type(&e));
+	EXPECT_EQ_SIZE_T(3, lept_get_array_size(&e));
+	/* array 3 - number 0 */
+	EXPECT_EQ_INT(LEPT_NUMBER, lept_get_type(lept_get_array_element(&e, 0)));
+	EXPECT_EQ_DOUBLE(0.0, lept_get_number(e));
+	/* array 3 - number 1 */
+	EXPECT_EQ_INT(LEPT_NUMBER, lept_get_type(lept_get_array_element(&e, 1)));
+	EXPECT_EQ_DOUBLE(1.0, lept_get_number(e));
+	/* array 3 - number 2 */
+	EXPECT_EQ_INT(LEPT_NUMBER, lept_get_type(lept_get_array_element(&e, 2)));
+	EXPECT_EQ_DOUBLE(2.0, lept_get_number(e));
+	lept_free(&v);
 }
 
 #define TEST_ERROR(error, json)\
